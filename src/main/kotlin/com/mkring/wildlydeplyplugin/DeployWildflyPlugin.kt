@@ -57,6 +57,9 @@ open class DeployWildflyTask : DefaultTask() {
     @Input
     var awaitRestart: Boolean = false
 
+    @Input
+    var timeout: Long = 120L // 120 seconds.
+
     init {
         group = "help"
         description = "Deploys files to a Wildfly und reloads it afterwards"
@@ -99,7 +102,8 @@ open class DeployWildflyTask : DefaultTask() {
                 awaitReload,
                 undeployBeforehand,
                 restart,
-                awaitRestart
+                awaitRestart,
+                timeout
             ).deploy()
         } catch (e: Exception) {
             log.error("deployWildfly task failed: ${e.message}", e)

@@ -27,7 +27,8 @@ class FileDeployer(
     private val awaitReload: Boolean,
     private val undeployBeforehand: Boolean,
     private val restart: Boolean,
-    private val awaitRestart: Boolean
+    private val awaitRestart: Boolean,
+    private val timeout: Long
 ) {
     private val domainMode = !domainServerGroup.isNullOrEmpty()
     private val deploymentInfoCmd : String = if (domainMode) {
@@ -88,7 +89,7 @@ class FileDeployer(
 
             if (undeployBeforehand) {
                 log.info("undeploying existing deployment with same name if present...")
-                var deployments = blockingCmd("$deploymentInfoCmd $name", 2, ChronoUnit.MINUTES).response.get("result").asList()
+                var deployments = blockingCmd("$deploymentInfoCmd $name", timeout, ChronoUnit.SECONDS).response.get("result").asList()
                 var shouldUndeploy = if (domainMode) {
                     //TIP: deployment-info in domain mode has a different response data structure as following
                     // result => [ ("step-1") => { "result" => { "deployment.war" => ... }}, ("step-2") => ... ]
@@ -100,7 +101,7 @@ class FileDeployer(
                 }
                 log.debug("shouldUndeploy=$shouldUndeploy")
                 if (shouldUndeploy) {
-                    blockingCmd("$undeployCmd $name", 2, ChronoUnit.MINUTES).response.also {
+                    blockingCmd("$undeployCmd $name", timeout, ChronoUnit.SECONDS).response.also {
                         println("undeploy response: $it\n")
                     }
                 }
@@ -145,14 +146,14 @@ class FileDeployer(
         log.debug("going to block until the reload/restart finished...\n")
         Thread.sleep(1000)
         val postReloadDeploymentInfoPrettyPrint =
-            blockingCmd(deploymentInfoCmd, 1, ChronoUnit.MINUTES).response.responsePrettyPrint()
+            blockingCmd(deploymentInfoCmd, timeout, ChronoUnit.SECONDS).response.responsePrettyPrint()
         log.debug("\n\nPOST reload/restart deployment info:\n$postReloadDeploymentInfoPrettyPrint")
     }
 
     private fun enableDeploymentIfNecessary(name: String) {
         log.debug("\nchecking if deployment is enabled...")
         val deploymentEnabled =
-            blockingCmd(deploymentInfoCmd, 2, ChronoUnit.MINUTES).response.get("result").asList().map {
+            blockingCmd(deploymentInfoCmd, timeout, ChronoUnit.SECONDS).response.get("result").asList().map {
                 it.asProperty().name to it.getParam("enabled").removePrefix("enabled: ")
             }.firstOrNull {
                 it.first == name.removePrefix("--name=")
@@ -160,7 +161,7 @@ class FileDeployer(
 
         if (deploymentEnabled == false) {
             log.debug("not enabled! going to enable now!")
-            blockingCmd("$enableDeploymentCmd $name", 2, ChronoUnit.MINUTES).response.also {
+            blockingCmd("$enableDeploymentCmd $name", timeout, ChronoUnit.SECONDS).response.also {
                 log.debug("enable response: $it\n")
             }
         }
